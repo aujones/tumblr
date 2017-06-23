@@ -9,8 +9,8 @@
 import UIKit
 import AlamofireImage
 
-class PhotosViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-
+class PhotosViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UIScrollViewDelegate {
+    
     @IBOutlet weak var tableView: UITableView!
     
     override func viewDidLoad() {
@@ -19,7 +19,7 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
         tableView.delegate = self
         tableView.dataSource = self
         
-
+        
         // Do any additional setup after loading the view.
         let url = URL(string: "https://api.tumblr.com/v2/blog/humansofnewyork.tumblr.com/posts/photo?api_key=Q6vHoaVm5L1u2ZAW1fqv3Jw48gFzYVg9P0vH0VHl3GVy6quoGV")!
         let session = URLSession(configuration: .default,    delegate: nil, delegateQueue: OperationQueue.main)
@@ -38,9 +38,7 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
                 
                 // TODO: Reload the table view
                 self.tableView.reloadData()
-                
             }
-        
         }
         
         task.resume()
@@ -68,18 +66,69 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
                 // TODO: Reload the table view
                 self.tableView.reloadData()
                 refreshControl.endRefreshing()
+            }
+        }
+        task.resume()
+    }
+    
+    // Infinite scrolling
+    var isMoreDataLoading = false
+    var offset = 20
+    
+    // Load more data
+    func loadMoreData() {
+        
+        // ... Create the NSURLRequest (myRequest) ...
+        
+        // Configure session so that completion handler is executed on main UI thread
+        let preUrl = "https://api.tumblr.com/v2/blog/humansofnewyork.tumblr.com/posts/photo?api_key=Q6vHoaVm5L1u2ZAW1fqv3Jw48gFzYVg9P0vH0VHl3GVy6quoGV&offset="
+        let fullUrl = preUrl + String(offset)
+        let url = URL(string: fullUrl)!
+        offset += 20
+        let session = URLSession(configuration: .default,    delegate: nil, delegateQueue: OperationQueue.main)
+        session.configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        
+        let task = session.dataTask(with: url) { (data, response, error) in
+            if let error = error {
+                print(error.localizedDescription)
+            } else if let data = data,
+                let dataDictionary = try! JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                self.isMoreDataLoading = false
+                // TODO: Get the posts and store in posts property
+                let responseDictionary = dataDictionary["response"] as! [String: Any]
+                // Store the returned array of dictionaries in our posts property
+                let newPosts = responseDictionary["posts"] as! [[String: Any]]
+                self.posts = self.posts + newPosts
                 
+                // Reload the table view
+                self.tableView.reloadData()
             }
             
         }
         task.resume()
-
     }
     
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if (!isMoreDataLoading) {
+            // Calculate the position of one screen length before the bottom of the results
+            let scrollViewContentHeight = tableView.contentSize.height
+            let scrollOffsetThreshold = scrollViewContentHeight - tableView.bounds.size.height
+            
+            // When the user has scrolled past the threshold, start requesting
+            if(scrollView.contentOffset.y > scrollOffsetThreshold && tableView.isDragging) {
+                isMoreDataLoading = true
+                
+                // Load more results
+                loadMoreData()
+            }
+        }
+    }
+    
+    // Remove gray effect
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
     }
-
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
@@ -101,23 +150,19 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
             let url = URL(string: urlString)
             
             cell.tumblrImage.af_setImage(withURL: url!)
-
-    }
-
-        
-        
+            
+        }
         return cell
     }
-    
     
     var posts: [[String: Any]] = []
     
     
     
-
-
+    
+    
     // MARK: - Navigation
-
+    
     // In a storyboard-based application, you will often want to do a little preparation before navigation
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
@@ -130,5 +175,5 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
         let post = posts[indexPath.row]
         vc.post = post
     }
-
+    
 }
