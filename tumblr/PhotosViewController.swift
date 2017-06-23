@@ -175,5 +175,4 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
         let post = posts[indexPath.row]
         vc.post = post
     }
-    
 }
